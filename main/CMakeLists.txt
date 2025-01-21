@@ -1,3 +1,3 @@
-idf_component_register(SRCS "sl_main.cpp" "sdmmc_manager.cpp" "sdmmc_manager.hpp"
-                    PRIV_REQUIRES fatfs
+idf_component_register(SRCS "sl_main.cpp" "sdmmc_manager.cpp" "sdmmc_manager.hpp" "uart_manager.cpp" "uart_manager.hpp"
+                    PRIV_REQUIRES fatfs driver
                     INCLUDE_DIRS "")
