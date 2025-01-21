@@ -52,7 +52,40 @@ esp_err_t sdmmc_manager::get_uart_cfg(uart_port_t port, gpio_num_t &tx, gpio_num
         return ESP_ERR_INVALID_STATE;
     }
 
+    if (cfg_array[(uint32_t)port].isNull() || !cfg_array[(uint32_t)port].is<JsonObject>()) {
+        ESP_LOGE(TAG, "Invalid config for UART port %lu", (uint32_t)port);
+        return ESP_ERR_INVALID_STATE;
+    }
 
+    auto cfg_obj = cfg_array[(int)port].as<JsonObject>();
+    int32_t tx_pin = cfg_obj["tx_pin"];
+    int32_t rx_pin = cfg_obj["rx_pin"];
+    int32_t cts_pin = cfg_obj["cts_pin"];
+    int32_t rts_pin = cfg_obj["rts_pin"];
+
+    if (tx_pin > GPIO_NUM_MAX || tx_pin < 0) {
+        tx = GPIO_NUM_NC;
+    } else {
+        tx = (gpio_num_t)tx_pin;
+    }
+
+    if (rx_pin > GPIO_NUM_MAX || rx_pin < 0) {
+        rx = GPIO_NUM_NC;
+    } else {
+        rx = (gpio_num_t)rx_pin;
+    }
+
+    if (cts_pin > GPIO_NUM_MAX || cts_pin < 0) {
+        cts = GPIO_NUM_NC;
+    } else {
+        cts = (gpio_num_t)cts_pin;
+    }
+
+    if (rts_pin > GPIO_NUM_MAX || rts_pin < 0) {
+        rts = GPIO_NUM_NC;
+    } else {
+        rts = (gpio_num_t)rts_pin;
+    }
 
     return ESP_OK;
 }
