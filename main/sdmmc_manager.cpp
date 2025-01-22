@@ -87,6 +87,73 @@ esp_err_t sdmmc_manager::get_uart_cfg(uart_port_t port, gpio_num_t &tx, gpio_num
         rts = (gpio_num_t)rts_pin;
     }
 
+    if (cfg_out == nullptr) {
+        return ESP_OK;
+    }
+
+    cfg_out->flags.allow_pd = 0;
+    cfg_out->source_clk = UART_SCLK_RTC;
+    cfg_out->baud_rate = cfg_obj["baudRate"].as<int>();
+
+    if (cfg_obj["stopBit"].as<double>() == 1.0f) {
+        cfg_out->stop_bits = UART_STOP_BITS_1;
+    } else if (cfg_obj["stopBit"].as<double>() == 1.5f) {
+        cfg_out->stop_bits = UART_STOP_BITS_1_5;
+    } else if (cfg_obj["stopBit"].as<double>() == 2.0f) {
+        cfg_out->stop_bits = UART_STOP_BITS_2;
+    } else {
+        ESP_LOGE(TAG, "Invalid stop bit config: %f", cfg_obj["stopBit"].as<double>());
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+
+    switch (cfg_obj["dataBit"].as<uint8_t>()) {
+        case 5: {
+            cfg_out->data_bits = UART_DATA_5_BITS;
+            break;
+        }
+
+        case 6: {
+            cfg_out->data_bits = UART_DATA_6_BITS;
+            break;
+        }
+
+        case 7: {
+            cfg_out->data_bits = UART_DATA_7_BITS;
+            break;
+        }
+
+        case 8: {
+            cfg_out->data_bits = UART_DATA_8_BITS;
+            break;
+        }
+
+        default: {
+            ESP_LOGE(TAG, "Invalid stop bit config: %u", cfg_obj["dataBit"].as<uint8_t>());
+            return ESP_ERR_INVALID_RESPONSE;
+        }
+    }
+
+    const char *parity_str = cfg_obj["parity"].as<const char *>();
+    if (parity_str != nullptr && strstr(parity_str, "odd") != nullptr) {
+        cfg_out->parity = UART_PARITY_ODD;
+    } else if (parity_str != nullptr && strstr(parity_str, "even") != nullptr) {
+        cfg_out->parity = UART_PARITY_EVEN;
+    } else {
+        cfg_out->parity = UART_PARITY_DISABLE;
+    }
+
+
+    const char *flow_ctrl_str = cfg_obj["flowCtrl"].as<const char *>();
+    if (flow_ctrl_str != nullptr && strstr(flow_ctrl_str, "rts") != nullptr) {
+        cfg_out->flow_ctrl = UART_HW_FLOWCTRL_RTS;
+    } else if (flow_ctrl_str != nullptr && strstr(flow_ctrl_str, "cts") != nullptr) {
+        cfg_out->flow_ctrl = UART_HW_FLOWCTRL_CTS;
+    } else if (flow_ctrl_str != nullptr && strstr(flow_ctrl_str, "rtscts") != nullptr) {
+        cfg_out->flow_ctrl = UART_HW_FLOWCTRL_CTS_RTS;
+    } else {
+        cfg_out->flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    }
+
     return ESP_OK;
 }
 
@@ -129,6 +196,8 @@ esp_err_t sdmmc_manager::reload_uart_config(const char *path)
     cfg_json[file_size] = '\0';
 
     fclose(file);
+    config_doc.clear();
+
     auto ret = ArduinoJson::deserializeJson(config_doc, cfg_json);
     if (ret != DeserializationError::Ok) {
         ESP_LOGE(TAG, "Failed to parse config JSON: %s", ret.c_str());
