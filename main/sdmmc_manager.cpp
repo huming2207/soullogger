@@ -27,7 +27,8 @@ esp_err_t sdmmc_manager::init(const char *path)
         sdmmc_card_print_info(stdout, card);
     }
 
-    return reload_uart_config();
+    ESP_LOGI(TAG, "Init OK");
+    return ret;
 }
 
 void sdmmc_manager::get_info(sdmmc_card_t *info)
