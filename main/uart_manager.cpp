@@ -28,6 +28,8 @@ esp_err_t uart_manager::init()
         return ESP_ERR_NO_MEM;
     }
 
+    ESP_LOGI(TAG, "Creating event task: %s", task_name);
+    xTaskCreateWithCaps(uart_event_task, task_name, 32768, this, tskIDLE_PRIORITY + 3, &evt_task_handle, MALLOC_CAP_SPIRAM);
     return ret;
 }
 
@@ -76,14 +78,27 @@ void uart_manager::uart_event_task(void *_ctx)
                     uart_flush_input(ctx->uart_port);
                 } else if (pos != 0) {
                     uint8_t *buf = nullptr;
-                    auto rb_ret = xRingbufferSendAcquire(ctx->rx_ringbuf, (void **)&buf, pos, pdMS_TO_TICKS(100));
-                    if (rb_ret != pdTRUE || buf == nullptr) {
-                        ESP_LOGW(TAG, "UART%d failed to allocate ringbuffer, len=%d", ctx->uart_port, pos);
+                    size_t buf_offset = 0;
+                    if (ctx->enable_timestamp) {
+                        char ts_str[128] = { 0 };
+                        struct timeval val = {};
+                        gettimeofday(&val, nullptr);
+                        snprintf(ts_str, sizeof(ts_str), "[%lld%06ld] ", val.tv_sec, val.tv_usec);
+                        ts_str[sizeof(ts_str) - 1] = '\0';
+                        buf_offset = strnlen(ts_str, sizeof(ts_str));
                     }
 
-                    int read_ret = uart_read_bytes(ctx->uart_port, buf, pos, pdMS_TO_TICKS(100));
+                    auto rb_ret = xRingbufferSendAcquire(ctx->rx_ringbuf, (void **)&buf, pos + buf_offset, pdMS_TO_TICKS(300));
+                    if (rb_ret != pdTRUE || buf == nullptr) {
+                        ESP_LOGW(TAG, "UART%d failed to allocate ringbuffer, giving up len=%d", ctx->uart_port, pos);
+                        uart_flush_input(ctx->uart_port);
+                        break;
+                    }
+
+                    int read_ret = uart_read_bytes(ctx->uart_port, buf + buf_offset, pos, pdMS_TO_TICKS(300));
                     if (read_ret < 0) {
                         ESP_LOGW(TAG, "UART%d failed to read: %d", ctx->uart_port, read_ret);
+                        uart_flush_input(ctx->uart_port); // Try to reset...
                     }
 
                     xRingbufferSendComplete(ctx->rx_ringbuf, buf);
@@ -122,4 +137,9 @@ esp_err_t uart_manager::wait_for_newline(uint8_t **buf, size_t *len_out, uint32_
 void uart_manager::finish_newline(uint8_t *buf)
 {
     vRingbufferReturnItem(rx_ringbuf, buf);
+}
+
+void uart_manager::toggle_timestamp_prepend(bool enable)
+{
+    enable_timestamp = enable;
 }

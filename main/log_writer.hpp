@@ -1,6 +1,8 @@
 #pragma once
 
 #include <esp_err.h>
+#include "uart_manager.hpp"
+#include "config_loader.hpp"
 
 class log_writer
 {
@@ -19,4 +21,11 @@ private:
 
 public:
     esp_err_t init();
+
+private:
+    uart_manager uart1 = uart_manager("uart1_mgr", UART_NUM_1);
+    uart_manager uart2 = uart_manager("uart2_mgr", UART_NUM_2);
+
+private:
+    static const constexpr char TAG[] = "logger";
 };
